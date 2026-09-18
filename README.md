@@ -51,8 +51,8 @@ curl -X POST http://localhost:3000/api/v1/orchestrate ^
 - **Security Middleware**: Intercepts and validates all incoming requests against a signature-based detection loop.
 - **Audit Logging**: Structured JSON logging via `winston` for SIEM integration.
 
-## 🤝 Contributing
-GuardianOS is a secure-by-design framework. We welcome contributions that improve our defense mechanisms. Please open an issue before submitting a PR.
+## 🤝 About & Contributions
+GuardianOS started as a secure-by-design architectural experiment. While it’s a personal project, I’ve built it with enterprise-grade modularity in mind. Feel free to explore the code, fork it, or ping me if you have ideas on how to make it even more secure!
 
 ## 📜 License
-MIT
+This project is licensed under the MIT License. Feel free to use the code for your own experiments.
