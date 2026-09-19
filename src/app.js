@@ -10,6 +10,10 @@ const app = express();
 // Security Hardening: Apply Helmet for secure headers
 app.use(helmet());
 
+// Add this near the top of src/app.js, after const app = express();
+const cors = require('cors');
+app.use(cors({ origin: 'http://localhost:5173' }));
+
 // Strict JSON parsing with size limits to prevent DoS
 app.use(express.json({ limit: '10kb' }));
 
