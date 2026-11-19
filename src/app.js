@@ -3,7 +3,7 @@ const helmet = require('helmet');
 const crypto = require('crypto');
 const { tenantContext } = require('./middleware/tenant.middleware');
 const { sanitizeLLMInput } = require('./middleware/security.middleware');
-const { logger } = require('./utils/logger');
+const { logger, logThreat } = require('./utils/logger');
 
 const app = express();
 
@@ -22,7 +22,7 @@ app.get('/health', (req, res) => {
 });
 
 /**
- * AI Orchestration Route
+ * AI Orchestration Route (Legacy/Full)
  * Flow: 
  * 1. Tenant Context Extraction (Isolation)
  * 2. LLM Input Sanitization (Injection Defense)
@@ -54,6 +54,103 @@ app.post('/api/v1/orchestrate', tenantContext, sanitizeLLMInput, async (req, res
   } catch (error) {
     next(error);
   }
+});
+
+/**
+ * AI Agent Endpoint (Frontend Compatible)
+ * Simplified endpoint for the AiOpsConsole chat interface
+ */
+app.post('/api/agent', tenantContext, sanitizeLLMInput, async (req, res, next) => {
+  try {
+    const { sanitizedPrompt, tenantId } = req;
+
+    logger.info('Processing Agent Request', {
+      tenantId,
+      action: 'agent_chat',
+      promptLength: sanitizedPrompt.length
+    });
+
+    // Simulate AI response
+    const responses = [
+      "I've analyzed your request within the secure tenant context. The operation completed successfully.",
+      "Processing complete. No security violations detected in the tenant isolation layer.",
+      "Request handled. Audit trail updated with reference: " + crypto.randomUUID(),
+      "Analysis complete. All data remains within your tenant boundary."
+    ];
+
+    const mockResponse = {
+      tenant_id: tenantId,
+      status: "success",
+      output: responses[Math.floor(Math.random() * responses.length)],
+      audit_ref: crypto.randomUUID(),
+      timestamp: new Date().toISOString()
+    };
+
+    res.json(mockResponse);
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * Security Audit Stream (SSE) - Live Telemetry
+ * Provides real-time security event streaming for the SecurityAuditTerminal
+ */
+app.get('/api/audit-stream', tenantContext, (req, res) => {
+  const { tenantId } = req;
+
+  logger.info('SSE Connection Established', { tenantId, action: 'audit_stream_connect' });
+
+  // Set SSE headers
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.flushHeaders();
+
+  // Send initial connection message
+  res.write(`data: ${JSON.stringify({ type: 'connected', tenantId, message: 'Audit stream connected', timestamp: new Date().toISOString() })}\n\n`);
+
+  // Simulate live telemetry events
+  const eventTypes = ['info', 'warning', 'threat', 'audit'];
+  const eventMessages = [
+    { type: 'info', message: 'Tenant context validated', details: 'Zero-trust verification passed' },
+    { type: 'info', message: 'RLS policy enforced', details: 'Row-level security active for tenant' },
+    { type: 'audit', message: 'API request processed', details: 'POST /api/agent - 200 OK' },
+    { type: 'warning', message: 'Rate limit approached', details: '85% of threshold reached' },
+    { type: 'threat', message: 'Injection attempt blocked', details: 'SQL pattern detected and rejected' },
+    { type: 'audit', message: 'Data access logged', details: 'Tenant data read operation recorded' },
+    { type: 'info', message: 'Security scan completed', details: 'No vulnerabilities found' },
+    { type: 'audit', message: 'Session heartbeat', details: 'Tenant session active' }
+  ];
+
+  let eventCount = 0;
+  const interval = setInterval(() => {
+    if (eventCount >= 20) {
+      clearInterval(interval);
+      res.write(`data: ${JSON.stringify({ type: 'info', message: 'Demo stream ended', timestamp: new Date().toISOString() })}\n\n`);
+      res.end();
+      return;
+    }
+
+    const event = eventMessages[Math.floor(Math.random() * eventMessages.length)];
+    const payload = {
+      ...event,
+      tenantId,
+      eventId: crypto.randomUUID(),
+      timestamp: new Date().toISOString(),
+      severity: event.type === 'threat' ? 'high' : event.type === 'warning' ? 'medium' : 'low'
+    };
+
+    res.write(`data: ${JSON.stringify(payload)}\n\n`);
+    eventCount++;
+  }, 2000);
+
+  // Handle client disconnect
+  req.on('close', () => {
+    clearInterval(interval);
+    logger.info('SSE Connection Closed', { tenantId, action: 'audit_stream_disconnect' });
+  });
 });
 
 // Centralized Error Handling Middleware
